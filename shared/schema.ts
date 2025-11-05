@@ -1,18 +1,78 @@
-import { sql } from "drizzle-orm";
-import { pgTable, text, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+export const projects = pgTable("projects", {
+  id: varchar("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const files = pgTable("files", {
+  id: varchar("id").primaryKey(),
+  projectId: varchar("project_id").notNull(),
+  name: text("name").notNull(),
+  path: text("path").notNull(),
+  content: text("content").notNull().default(""),
+  language: text("language").notNull().default("javascript"),
 });
 
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
+export const aiMessages = pgTable("ai_messages", {
+  id: varchar("id").primaryKey(),
+  projectId: varchar("project_id").notNull(),
+  role: text("role").notNull(),
+  content: text("content").notNull(),
+  timestamp: timestamp("timestamp").notNull(),
+  metadata: jsonb("metadata"),
+});
+
+export const insertProjectSchema = createInsertSchema(projects).omit({ id: true });
+export const insertFileSchema = createInsertSchema(files).omit({ id: true });
+export const insertAiMessageSchema = createInsertSchema(aiMessages).omit({ id: true, timestamp: true });
+
+export type Project = typeof projects.$inferSelect;
+export type InsertProject = z.infer<typeof insertProjectSchema>;
+export type File = typeof files.$inferSelect;
+export type InsertFile = z.infer<typeof insertFileSchema>;
+export type AiMessage = typeof aiMessages.$inferSelect;
+export type InsertAiMessage = z.infer<typeof insertAiMessageSchema>;
+
+export const aiChatRequestSchema = z.object({
+  message: z.string().min(1),
+  projectId: z.string(),
+  currentFile: z.object({
+    id: z.string(),
+    name: z.string(),
+    content: z.string(),
+    language: z.string(),
+  }).optional(),
+  allFiles: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    path: z.string(),
+    content: z.string(),
+    language: z.string(),
+  })).optional(),
+});
+
+export type AiChatRequest = z.infer<typeof aiChatRequestSchema>;
+
+export const aiChatResponseSchema = z.object({
+  explanation: z.string(),
+  codeChanges: z.array(z.object({
+    fileId: z.string(),
+    fileName: z.string(),
+    newContent: z.string(),
+    action: z.enum(['create', 'update', 'delete']),
+  })).optional(),
+  suggestion: z.string().optional(),
+});
+
+export type AiChatResponse = z.infer<typeof aiChatResponseSchema>;
+
+export const executeCodeRequestSchema = z.object({
+  code: z.string(),
+  language: z.string(),
+});
+
+export type ExecuteCodeRequest = z.infer<typeof executeCodeRequestSchema>;
