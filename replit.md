@@ -33,12 +33,20 @@ The application uses a comprehensive design system based on the "new-york" style
 - Elevation system using semi-transparent overlays for hover/active states
 
 **Layout Structure:**
-The workspace follows a multi-panel layout:
+The workspace follows a responsive multi-panel layout:
+
+*Desktop (≥768px):*
 - Fixed header (h-14) with project info and action buttons
-- Collapsible sidebar (w-64, collapsible to w-12) for file explorer
-- Flexible editor panel (flex-1, min-w-400px) with Monaco editor
-- Flexible preview panel (flex-1, min-w-400px) with live code preview
+- File explorer sidebar (w-64) always visible
+- Editor panel and preview panel side-by-side (50% each)
 - Slide-in AI chat panel (w-96) from the right edge
+
+*Mobile (<768px):*
+- Responsive header with hamburger menu for file explorer toggle
+- File explorer (w-64) hidden by default, opens as overlay when toggled
+- Tabs to switch between Editor and Preview views (only one visible at a time)
+- Full-width AI chat panel (w-full) as overlay
+- Auto-closes file explorer after selecting a file for better screen space
 
 ### Backend Architecture
 
