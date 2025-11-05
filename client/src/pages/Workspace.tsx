@@ -20,6 +20,8 @@ export default function Workspace() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
   const [previewKey, setPreviewKey] = useState(0);
+  const [isFileExplorerOpen, setIsFileExplorerOpen] = useState(true);
+  const [mobileView, setMobileView] = useState<"editor" | "preview">("editor");
 
   // Fetch files from backend
   const { data: backendFiles = [], isLoading } = useQuery<File[]>({
@@ -270,19 +272,62 @@ export default function Workspace() {
         onToggleAI={() => setIsAIChatOpen(!isAIChatOpen)}
         isAIOpen={isAIChatOpen}
         isRunning={false}
+        onToggleFiles={() => setIsFileExplorerOpen(!isFileExplorerOpen)}
+        isFilesOpen={isFileExplorerOpen}
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <FileExplorer
-          files={files}
-          activeFileId={activeFileId}
-          onSelectFile={setActiveFileId}
-          onCreateFile={createFile}
-          onDeleteFile={deleteFile}
-        />
+        {/* File Explorer - Hidden on mobile unless toggled */}
+        <div 
+          className={`${
+            isFileExplorerOpen ? "flex" : "hidden"
+          } md:flex h-full w-64 flex-shrink-0`}
+        >
+          <FileExplorer
+            files={files}
+            activeFileId={activeFileId}
+            onSelectFile={(id) => {
+              setActiveFileId(id);
+              // On mobile, close file explorer after selecting file
+              if (typeof window !== "undefined" && window.innerWidth < 768) {
+                setIsFileExplorerOpen(false);
+              }
+            }}
+            onCreateFile={createFile}
+            onDeleteFile={deleteFile}
+          />
+        </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          <div className="flex flex-1 flex-col border-r">
+        {/* Main content area with responsive layout */}
+        <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+          {/* Mobile tabs */}
+          <div className="flex md:hidden border-b bg-background">
+            <button
+              onClick={() => setMobileView("editor")}
+              className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                mobileView === "editor"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground"
+              }`}
+              data-testid="tab-editor"
+            >
+              Editor
+            </button>
+            <button
+              onClick={() => setMobileView("preview")}
+              className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                mobileView === "preview"
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground"
+              }`}
+              data-testid="tab-preview"
+            >
+              Preview
+            </button>
+          </div>
+
+          {/* Editor Panel */}
+          <div className={`flex flex-1 flex-col border-r ${mobileView === "editor" ? "flex" : "hidden md:flex"}`}>
             <div className="flex h-10 items-center border-b bg-background px-4">
               <div className="flex items-center gap-2">
                 {activeFile && (
@@ -312,7 +357,8 @@ export default function Workspace() {
             </div>
           </div>
 
-          <div className="w-[50%]">
+          {/* Preview Panel */}
+          <div className={`flex-1 ${mobileView === "preview" ? "flex" : "hidden md:flex"} md:w-[50%]`}>
             <PreviewFrame
               key={previewKey}
               htmlContent={getFileContent("html")}
@@ -324,6 +370,7 @@ export default function Workspace() {
           </div>
         </div>
 
+        {/* AI Chat Panel */}
         <AIChatPanel
           isOpen={isAIChatOpen}
           onClose={() => setIsAIChatOpen(false)}

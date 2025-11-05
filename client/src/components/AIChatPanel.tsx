@@ -74,7 +74,7 @@ export function AIChatPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed right-0 top-0 z-40 flex h-screen w-96 flex-col border-l bg-background shadow-lg" data-testid="ai-chat-panel">
+    <div className="fixed right-0 top-0 z-40 flex h-screen w-full md:w-96 flex-col border-l bg-background shadow-lg" data-testid="ai-chat-panel">
       <div className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-primary" />
