@@ -1,11 +1,10 @@
 import OpenAI from "openai";
 
-// This is using Replit's AI Integrations service, which provides OpenAI-compatible API access
-// without requiring your own OpenAI API key. Charges are billed to your Replit credits.
+// Use direct OpenAI API with user's API key for more powerful AI capabilities
 export const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_API_KEY ? undefined : process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
 });
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-export const DEFAULT_MODEL = "gpt-5";
+// Use GPT-4 for better code generation and conversation
+export const DEFAULT_MODEL = process.env.OPENAI_API_KEY ? "gpt-4-turbo-preview" : "gpt-5";

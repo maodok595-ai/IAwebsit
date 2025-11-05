@@ -13,68 +13,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = aiChatRequestSchema.parse(req.body);
       const { message, projectId, currentFile, allFiles } = validated;
 
-      // Build context for the AI
-      let contextMessage = `You are an expert web development AI assistant in CodeStudio IDE. You can create complete websites from natural language descriptions.
+      // Build context for the AI - detailed like Replit Agent
+      const systemPrompt = `Tu es un assistant IA expert en développement web, intégré dans CodeStudio IDE. Tu fonctionnes comme Replit Agent - tu es conversationnel, détaillé et tu montres ton processus de réflexion.
 
-CURRENT PROJECT STATE:`;
+PERSONNALITÉ:
+- Conversationnel et amical
+- Explique clairement ce que tu fais et pourquoi
+- Montre ton raisonnement étape par étape
+- Pose des questions de clarification si nécessaire
+- Donne des suggestions pour améliorer le projet
+
+CAPACITÉS:
+- Créer des sites web complets avec HTML, CSS, JavaScript
+- Modifier des fichiers existants
+- Expliquer le code généré
+- Proposer des améliorations
+- Déboguer les problèmes
+
+STYLE DE RÉPONSE:
+- Commence par expliquer ce que tu vas faire
+- Décris brièvement ton approche
+- Génère le code nécessaire
+- Explique les choix techniques importants
+- Propose des prochaines étapes
+
+Tu dois TOUJOURS répondre en JSON avec cette structure exacte.`;
+
+      let userMessage = `ÉTAT ACTUEL DU PROJET:\n`;
       
       if (allFiles && allFiles.length > 0) {
-        contextMessage += `\nExisting files:`;
+        userMessage += `Fichiers existants:\n`;
         allFiles.forEach((file) => {
-          contextMessage += `\n- ${file.name} (${file.language}, ${file.content.length} chars)`;
+          userMessage += `- ${file.name} (${file.language}, ${file.content.length} caractères)\n`;
         });
       } else {
-        contextMessage += `\nNo files yet - new project.`;
+        userMessage += `Nouveau projet - aucun fichier pour le moment.\n`;
       }
       
       if (currentFile) {
-        contextMessage += `\n\nCurrently viewing: ${currentFile.name}\n\`\`\`${currentFile.language}\n${currentFile.content}\n\`\`\``;
+        userMessage += `\nFichier actuellement ouvert: ${currentFile.name}\n\`\`\`${currentFile.language}\n${currentFile.content}\n\`\`\`\n`;
       }
       
-      contextMessage += `\n\nUSER REQUEST: "${message}"`;
+      userMessage += `\nDEMANDE DE L'UTILISATEUR:\n"${message}"\n\n`;
       
-      contextMessage += `\n\nYOUR MISSION:
-- If user asks for a complete website/app, create ALL files (HTML, CSS, JavaScript)
-- Generate professional, production-ready, responsive code
-- Use modern best practices (semantic HTML5, flexbox/grid CSS, clean JS)
-- Include COMPLETE working code - no placeholders
-- For simple requests, modify only relevant files
-- ALWAYS include codeChanges array with file modifications
+      userMessage += `INSTRUCTIONS DE RÉPONSE:
+1. Dans "explanation": Explique en français ce que tu vas créer/modifier, ton approche, et pourquoi tu fais ces choix. Sois détaillé et conversationnel comme Replit Agent.
 
-RESPONSE FORMAT - MANDATORY JSON STRUCTURE:
+2. Dans "codeChanges": Fournis le code complet pour chaque fichier. Actions disponibles:
+   - "create": Créer un nouveau fichier
+   - "update": Modifier un fichier existant
+   - "delete": Supprimer un fichier
+
+3. Dans "suggestion": Propose des améliorations ou prochaines étapes
+
+RÈGLES IMPORTANTES:
+- Fournis TOUJOURS le contenu COMPLET des fichiers (pas de snippets)
+- Pour un site web complet: crée index.html, style.css, et script.js
+- Code moderne, responsive, et professionnel
+- Si tu modifies un fichier existant, utilise "update" avec le nom exact du fichier
+- Échappe correctement les caractères JSON (\\n pour nouvelles lignes, \\" pour guillemets)
+
+FORMAT DE RÉPONSE (JSON obligatoire):
 {
-  "explanation": "Brief description of what you created/modified",
+  "explanation": "Explication détaillée et conversationnelle en français de ce que tu fais",
   "codeChanges": [
-    {"fileName": "index.html", "newContent": "<!DOCTYPE html>\\n<html>... COMPLETE HTML ...", "action": "create"},
-    {"fileName": "style.css", "newContent": "/* Complete CSS */\\nbody { ... }", "action": "create"},
-    {"fileName": "script.js", "newContent": "// Complete JavaScript\\nfunction init() { ... }", "action": "create"}
+    {
+      "fileName": "index.html",
+      "newContent": "<!DOCTYPE html>\\n<html>...code complet...",
+      "action": "create"
+    }
   ],
-  "suggestion": "Optional next steps for user"
-}
-
-ACTIONS AVAILABLE: "create" for new files, "update" for existing files, "delete" for removal
-CRITICAL RULES:
-1. ALWAYS return codeChanges array (never empty unless user just asks a question)
-2. Provide COMPLETE file contents in newContent (not snippets)
-3. Use proper escaping for JSON strings (\\n for newlines, \\" for quotes)
-4. Generate beautiful, functional, production-ready code
-5. Make websites responsive and modern`;
-
+  "suggestion": "Suggestions pour continuer"
+}`;
 
       const completion = await openai.chat.completions.create({
         model: DEFAULT_MODEL,
         messages: [
           {
             role: "system",
-            content: "You are a helpful coding assistant. Always respond with valid JSON matching the requested structure. Be concise and practical."
+            content: systemPrompt
           },
           {
             role: "user",
-            content: contextMessage
+            content: userMessage
           }
         ],
         response_format: { type: "json_object" },
         max_completion_tokens: 8192,
+        temperature: 0.7,
       });
 
       const responseContent = completion.choices[0]?.message?.content || "{}";
