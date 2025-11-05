@@ -66,24 +66,35 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
       
       // Apply code changes automatically by calling backend endpoints
       if (data.codeChanges && data.codeChanges.length > 0) {
+        console.log("Processing", data.codeChanges.length, "code changes:", data.codeChanges);
+        
         try {
+          // Get fresh file list to ensure we have accurate file IDs
+          const currentFilesResponse = await fetch(`/api/workspace/files/${PROJECT_ID}`);
+          const currentFiles = await currentFilesResponse.json();
+          console.log("Current files before AI changes:", currentFiles);
+          
           for (const change of data.codeChanges) {
+            console.log("Processing change:", change);
             // Check if file already exists by name
-            const existingFile = files.find(f => f.name === change.fileName);
+            const existingFile = currentFiles.find((f: any) => f.name === change.fileName);
             
             if (change.action === "delete") {
               // Delete file
-              const fileToDelete = change.fileId ? files.find(f => f.id === change.fileId) : existingFile;
+              const fileToDelete = change.fileId ? currentFiles.find((f: any) => f.id === change.fileId) : existingFile;
               if (fileToDelete) {
+                console.log("Deleting file:", fileToDelete.name);
                 await apiRequest("DELETE", `/api/workspace/files/${fileToDelete.id}`, undefined);
               }
             } else if (existingFile) {
               // Update existing file (regardless of action)
+              console.log("Updating existing file:", existingFile.name, "ID:", existingFile.id);
               await apiRequest("PATCH", `/api/workspace/files/${existingFile.id}`, {
                 content: change.newContent,
               });
             } else {
               // Create new file
+              console.log("Creating new file:", change.fileName);
               await apiRequest("POST", "/api/workspace/files", {
                 projectId: PROJECT_ID,
                 name: change.fileName,
@@ -107,12 +118,15 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
             description: `${data.codeChanges.length} fichier(s) modifié(s)`,
           });
         } catch (error) {
+          console.error("Error applying code changes:", error);
           toast({
             title: "Erreur lors de la sauvegarde",
             description: error instanceof Error ? error.message : "Impossible de sauvegarder les fichiers",
             variant: "destructive",
           });
         }
+      } else {
+        console.log("No code changes returned from AI");
       }
     },
     onError: (error) => {

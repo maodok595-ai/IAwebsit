@@ -39,20 +39,26 @@ CURRENT PROJECT STATE:`;
 - Use modern best practices (semantic HTML5, flexbox/grid CSS, clean JS)
 - Include COMPLETE working code - no placeholders
 - For simple requests, modify only relevant files
+- ALWAYS include codeChanges array with file modifications
 
-RESPONSE FORMAT (JSON):
+RESPONSE FORMAT - MANDATORY JSON STRUCTURE:
 {
-  "explanation": "Brief description of what you created",
+  "explanation": "Brief description of what you created/modified",
   "codeChanges": [
-    {"fileName": "index.html", "newContent": "full HTML here", "action": "create"},
-    {"fileName": "style.css", "newContent": "full CSS here", "action": "create"},
-    {"fileName": "script.js", "newContent": "full JS here", "action": "create"}
+    {"fileName": "index.html", "newContent": "<!DOCTYPE html>\\n<html>... COMPLETE HTML ...", "action": "create"},
+    {"fileName": "style.css", "newContent": "/* Complete CSS */\\nbody { ... }", "action": "create"},
+    {"fileName": "script.js", "newContent": "// Complete JavaScript\\nfunction init() { ... }", "action": "create"}
   ],
-  "suggestion": "Optional next steps"
+  "suggestion": "Optional next steps for user"
 }
 
-ACTIONS: "create" (new file), "update" (existing file), "delete"
-IMPORTANT: Provide COMPLETE file contents, generate beautiful functional code.`;
+ACTIONS AVAILABLE: "create" for new files, "update" for existing files, "delete" for removal
+CRITICAL RULES:
+1. ALWAYS return codeChanges array (never empty unless user just asks a question)
+2. Provide COMPLETE file contents in newContent (not snippets)
+3. Use proper escaping for JSON strings (\\n for newlines, \\" for quotes)
+4. Generate beautiful, functional, production-ready code
+5. Make websites responsive and modern`;
 
 
       const completion = await openai.chat.completions.create({
@@ -72,23 +78,32 @@ IMPORTANT: Provide COMPLETE file contents, generate beautiful functional code.`;
       });
 
       const responseContent = completion.choices[0]?.message?.content || "{}";
+      console.log("=== AI RESPONSE ===");
+      console.log(responseContent);
+      console.log("==================");
+      
       let aiResponse: AiChatResponse;
       
       try {
         const parsed = JSON.parse(responseContent);
         
         // Ensure codeChanges have proper structure
-        if (parsed.codeChanges) {
+        if (parsed.codeChanges && Array.isArray(parsed.codeChanges)) {
           parsed.codeChanges = parsed.codeChanges.map((change: any) => ({
-            fileId: change.fileId || currentFile?.id || 'new',
-            fileName: change.fileName || currentFile?.name || 'untitled.txt',
+            fileId: change.fileId || undefined,
+            fileName: change.fileName || 'untitled.txt',
             newContent: change.newContent || '',
-            action: change.action || 'update'
+            action: change.action || 'create'
           }));
+        } else {
+          // If no codeChanges provided, initialize empty array
+          parsed.codeChanges = [];
         }
         
         aiResponse = parsed;
+        console.log("Parsed AI response with", parsed.codeChanges?.length || 0, "code changes");
       } catch (e) {
+        console.error("Failed to parse AI response:", e);
         // Fallback if JSON parsing fails
         aiResponse = {
           explanation: responseContent,

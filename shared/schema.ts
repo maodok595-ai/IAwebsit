@@ -60,7 +60,7 @@ export type AiChatRequest = z.infer<typeof aiChatRequestSchema>;
 export const aiChatResponseSchema = z.object({
   explanation: z.string(),
   codeChanges: z.array(z.object({
-    fileId: z.string(),
+    fileId: z.string().optional(),
     fileName: z.string(),
     newContent: z.string(),
     action: z.enum(['create', 'update', 'delete']),
