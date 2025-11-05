@@ -53,6 +53,16 @@ export const aiChatRequestSchema = z.object({
     content: z.string(),
     language: z.string(),
   })).optional(),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+    codeChanges: z.array(z.object({
+      fileName: z.string(),
+      newContent: z.string(),
+      action: z.enum(['create', 'update', 'delete']),
+    })).optional(),
+    suggestion: z.string().optional(),
+  })).optional(),
 });
 
 export type AiChatRequest = z.infer<typeof aiChatRequestSchema>;

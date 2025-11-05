@@ -10,12 +10,13 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   codeChanges?: {
-    fileId: string;
+    fileId?: string;
     fileName: string;
     newContent: string;
     action: "create" | "update" | "delete";
   }[];
   timestamp: Date;
+  suggestion?: string;
 }
 
 interface AIChatPanelProps {

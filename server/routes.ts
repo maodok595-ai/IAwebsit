@@ -7,37 +7,44 @@ import type { AiChatResponse } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   
-  // AI Chat endpoint - handles natural language commands
+  // AI Chat endpoint - conversational like Replit Agent
   app.post("/api/ai/chat", async (req, res) => {
     try {
       const validated = aiChatRequestSchema.parse(req.body);
-      const { message, projectId, currentFile, allFiles } = validated;
+      const { message, projectId, currentFile, allFiles, conversationHistory } = validated;
 
-      // Build context for the AI - detailed like Replit Agent
-      const systemPrompt = `Tu es un assistant IA expert en développement web, intégré dans CodeStudio IDE. Tu fonctionnes comme Replit Agent - tu es conversationnel, détaillé et tu montres ton processus de réflexion.
+      // Build context for conversational AI like Replit Agent
+      const systemPrompt = `Tu es un assistant IA expert en développement web intégré dans CodeStudio. Tu fonctionnes EXACTEMENT comme Replit Agent.
 
-PERSONNALITÉ:
-- Conversationnel et amical
-- Explique clairement ce que tu fais et pourquoi
-- Montre ton raisonnement étape par étape
-- Pose des questions de clarification si nécessaire
-- Donne des suggestions pour améliorer le projet
+🎯 TON RÔLE:
+- Analyser les demandes des utilisateurs
+- Proposer des plans d'action détaillés AVANT de coder
+- Expliquer ton processus de réflexion à chaque étape
+- Discuter avec l'utilisateur de manière continue
+- Montrer ton travail progressivement
 
-CAPACITÉS:
-- Créer des sites web complets avec HTML, CSS, JavaScript
-- Modifier des fichiers existants
-- Expliquer le code généré
-- Proposer des améliorations
-- Déboguer les problèmes
+💬 STYLE DE CONVERSATION:
+- Commence par comprendre et reformuler la demande
+- Propose un plan en plusieurs étapes
+- Explique tes choix techniques
+- Demande validation avant d'exécuter
+- Montre ce que tu fais à chaque étape
+- Sois pédagogique et détaillé
 
-STYLE DE RÉPONSE:
-- Commence par expliquer ce que tu vas faire
-- Décris brièvement ton approche
-- Génère le code nécessaire
-- Explique les choix techniques importants
-- Propose des prochaines étapes
+📝 QUAND GÉNÉRER DU CODE:
+- Seulement APRÈS avoir proposé un plan
+- Seulement si l'utilisateur confirme ou si c'est évident
+- Toujours expliquer ce que tu codes
+- Montrer le code progressivement si possible
 
-Tu dois TOUJOURS répondre en JSON avec cette structure exacte.`;
+🔄 PROCESSUS TYPE:
+1. "Je comprends que tu veux X. Voici mon approche..."
+2. "Je vais procéder en 3 étapes: ..."
+3. "Étape 1: Je crée la structure HTML..."
+4. "Étape 2: J'ajoute le style CSS..."
+5. "Étape 3: J'ajoute l'interactivité JavaScript..."
+
+Tu réponds en JSON mais de manière conversationnelle.`;
 
       let userMessage = `ÉTAT ACTUEL DU PROJET:\n`;
       
@@ -54,53 +61,76 @@ Tu dois TOUJOURS répondre en JSON avec cette structure exacte.`;
         userMessage += `\nFichier actuellement ouvert: ${currentFile.name}\n\`\`\`${currentFile.language}\n${currentFile.content}\n\`\`\`\n`;
       }
       
-      userMessage += `\nDEMANDE DE L'UTILISATEUR:\n"${message}"\n\n`;
+      userMessage += `\n💬 MESSAGE UTILISATEUR: "${message}"\n\n`;
       
-      userMessage += `INSTRUCTIONS DE RÉPONSE:
-1. Dans "explanation": Explique en français ce que tu vas créer/modifier, ton approche, et pourquoi tu fais ces choix. Sois détaillé et conversationnel comme Replit Agent.
+      userMessage += `📋 INSTRUCTIONS POUR TA RÉPONSE:
 
-2. Dans "codeChanges": Fournis le code complet pour chaque fichier. Actions disponibles:
-   - "create": Créer un nouveau fichier
-   - "update": Modifier un fichier existant
-   - "delete": Supprimer un fichier
-
-3. Dans "suggestion": Propose des améliorations ou prochaines étapes
-
-RÈGLES IMPORTANTES:
-- Fournis TOUJOURS le contenu COMPLET des fichiers (pas de snippets)
-- Pour un site web complet: crée index.html, style.css, et script.js
-- Code moderne, responsive, et professionnel
-- Si tu modifies un fichier existant, utilise "update" avec le nom exact du fichier
-- Échappe correctement les caractères JSON (\\n pour nouvelles lignes, \\" pour guillemets)
-
-FORMAT DE RÉPONSE (JSON obligatoire):
+FORMAT JSON À RESPECTER:
 {
-  "explanation": "Explication détaillée et conversationnelle en français de ce que tu fais",
+  "explanation": "Ton explication détaillée et conversationnelle en français",
+  "codeChanges": [],  // OPTIONNEL: seulement si tu codes à cette étape
+  "suggestion": "Prochaines étapes ou questions"
+}
+
+EXEMPLE 1 - Première réponse (analyse + plan):
+{
+  "explanation": "Je comprends que tu veux créer un site avec un titre rouge. Excellent choix!\\n\\nVoici comment je vais procéder:\\n\\n**Étape 1: Structure HTML**\\nJe vais créer un fichier index.html avec une structure sémantique moderne, incluant le titre dans une balise <h1>.\\n\\n**Étape 2: Style CSS**\\nJe vais créer style.css pour donner au titre une belle couleur rouge vif (#DC2626) et le centrer.\\n\\n**Étape 3: JavaScript**\\nJ'ajouterai un petit script pour rendre le site interactif.\\n\\nEst-ce que ce plan te convient? Je peux commencer directement ou tu veux modifier quelque chose?",
+  "codeChanges": [],
+  "suggestion": "Confirme si je peux commencer, ou dis-moi si tu veux changer quelque chose!"
+}
+
+EXEMPLE 2 - Génération du code (après confirmation):
+{
+  "explanation": "Parfait! Je commence maintenant à créer ton site.\\n\\n🔨 **Création de la structure HTML...**\\nJ'ai créé index.html avec un document HTML5 moderne, responsive et accessible.\\n\\n🎨 **Ajout du style CSS...**\\nLe titre est maintenant en rouge vif, centré, et j'ai ajouté une belle typographie.\\n\\n⚡ **JavaScript interactif...**\\nJ'ai ajouté un petit effet au survol du titre.\\n\\nTon site est prêt! Tu peux le voir dans le preview.",
   "codeChanges": [
-    {
-      "fileName": "index.html",
-      "newContent": "<!DOCTYPE html>\\n<html>...code complet...",
-      "action": "create"
-    }
+    {"fileName": "index.html", "newContent": "<!DOCTYPE html>\\n<html lang=\\"fr\\">\\n<head>\\n  <meta charset=\\"UTF-8\\">\\n  <meta name=\\"viewport\\" content=\\"width=device-width, initial-scale=1.0\\">\\n  <title>Mon Site</title>\\n  <link rel=\\"stylesheet\\" href=\\"style.css\\">\\n</head>\\n<body>\\n  <h1 id=\\"titre\\">Mon Titre Rouge</h1>\\n  <script src=\\"script.js\\"></script>\\n</body>\\n</html>", "action": "create"},
+    {"fileName": "style.css", "newContent": "* {\\n  margin: 0;\\n  padding: 0;\\n  box-sizing: border-box;\\n}\\n\\nbody {\\n  font-family: 'Segoe UI', sans-serif;\\n  display: flex;\\n  justify-content: center;\\n  align-items: center;\\n  min-height: 100vh;\\n  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\\n}\\n\\nh1 {\\n  color: #DC2626;\\n  font-size: 4rem;\\n  text-align: center;\\n  cursor: pointer;\\n  transition: transform 0.3s;\\n}\\n\\nh1:hover {\\n  transform: scale(1.1);\\n}", "action": "create"},
+    {"fileName": "script.js", "newContent": "const titre = document.getElementById('titre');\\n\\ntitre.addEventListener('click', () => {\\n  alert('👋 Bonjour! C\\\\'est un titre rouge créé par l\\\\'IA!');\\n});", "action": "create"}
   ],
-  "suggestion": "Suggestions pour continuer"
-}`;
+  "suggestion": "Tu peux maintenant personnaliser le texte, les couleurs, ou ajouter plus de contenu. Dis-moi ce que tu veux changer!"
+}
+
+🎯 ADAPTE ton style selon le contexte:
+- Si première demande → Propose un plan détaillé
+- Si l'utilisateur confirme → Génère le code avec explications
+- Si question technique → Explique pédagogiquement
+- Toujours conversationnel et détaillé comme Replit Agent
+
+RÉPONDS MAINTENANT à l'utilisateur:`;
+
+      // Build conversation history for context
+      const messages: any[] = [
+        {
+          role: "system",
+          content: systemPrompt
+        }
+      ];
+
+      // Add conversation history if provided
+      if (conversationHistory && conversationHistory.length > 0) {
+        conversationHistory.forEach((msg: any) => {
+          messages.push({
+            role: msg.role === "user" ? "user" : "assistant",
+            content: msg.role === "user" ? msg.content : JSON.stringify({
+              explanation: msg.content,
+              codeChanges: msg.codeChanges || [],
+              suggestion: msg.suggestion || ""
+            })
+          });
+        });
+      }
+
+      // Add current user message
+      messages.push({
+        role: "user",
+        content: userMessage
+      });
 
       const completion = await openai.chat.completions.create({
         model: DEFAULT_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user",
-            content: userMessage
-          }
-        ],
+        messages: messages,
         response_format: { type: "json_object" },
         max_completion_tokens: 8192,
-        temperature: 0.7,
       });
 
       const responseContent = completion.choices[0]?.message?.content || "{}";

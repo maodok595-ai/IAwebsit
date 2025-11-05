@@ -22,7 +22,7 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
     {
       id: nanoid(),
       role: "assistant",
-      content: "Bonjour! Je suis votre assistant de développement IA. Décrivez-moi le site web que vous voulez créer et je vais le construire pour vous.\n\nPar exemple:\n• \"Crée-moi un portfolio moderne avec une page d'accueil\"\n• \"Fais un site de restaurant avec menu et réservations\"\n• \"Un landing page pour une application mobile\"",
+      content: "Bonjour! Je suis votre assistant de développement IA. Décrivez-moi le site web que vous voulez créer et je vais le construire pour vous.\n\nPar exemple:\n• \"Crée-moi un portfolio moderne avec une page d'accueil\"\n• \"Fais un site de restaurant avec menu et réservations\"\n• \"Un landing page pour une application mobile\"\n\n💡 **Comment je travaille:**\n1. Je vais analyser votre demande et vous proposer un plan d'action détaillé\n2. Je vous expliquerai mes choix techniques avant de coder\n3. Je vous montrerai mon processus étape par étape\n4. Vous pourrez discuter avec moi et ajuster à tout moment",
       timestamp: new Date(),
     }
   ]);
@@ -42,6 +42,14 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
   // AI Chat mutation
   const aiChatMutation = useMutation({
     mutationFn: async (message: string) => {
+      // Build conversation history from chatMessages
+      const conversationHistory = chatMessages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+        codeChanges: msg.codeChanges,
+        suggestion: msg.role === "assistant" ? "" : undefined,
+      }));
+      
       const response = await apiRequest(
         "POST",
         "/api/ai/chat",
@@ -50,16 +58,24 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
           projectId: PROJECT_ID,
           currentFile: null,
           allFiles: files,
+          conversationHistory: conversationHistory,
         }
       );
       return response as unknown as AiChatResponse;
     },
     onSuccess: async (data: AiChatResponse) => {
+      // Append suggestion to explanation if provided
+      let fullContent = data.explanation || "Réponse reçue.";
+      if (data.suggestion) {
+        fullContent += `\n\n💡 **Prochaines étapes:**\n${data.suggestion}`;
+      }
+      
       const aiMessage: ChatMessage = {
         id: nanoid(),
         role: "assistant",
-        content: data.explanation || "Projet créé avec succès!",
+        content: fullContent,
         codeChanges: data.codeChanges,
+        suggestion: data.suggestion,
         timestamp: new Date(),
       };
       setChatMessages((prev) => [...prev, aiMessage]);
