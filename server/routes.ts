@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { openai, DEFAULT_MODEL } from "./lib/openai";
+import { anthropic, DEFAULT_MODEL } from "./lib/openai";
 import { aiChatRequestSchema, aiChatResponseSchema, executeCodeRequestSchema } from "@shared/schema";
 import type { AiChatResponse } from "@shared/schema";
 
@@ -13,23 +13,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validated = aiChatRequestSchema.parse(req.body);
       const { message, projectId, currentFile, allFiles, conversationHistory } = validated;
 
-      // Build context for conversational AI like Replit Agent
-      const systemPrompt = `Tu es un assistant IA de développement web expert. Tu travailles comme Replit Agent.
+      // System prompt optimized for Claude (Replit Agent's model)
+      const systemPrompt = `Tu es un assistant de code. Ta SEULE tâche: GÉNÉRER DU CODE HTML/CSS/JS.
 
-COMPORTEMENT:
-1. Analyse la demande de l'utilisateur
-2. Propose un plan d'action détaillé en français
-3. Explique ton processus étape par étape
-4. Génère le code complet quand tu codes
+COMPORTEMENT REQUIS:
+- TOUJOURS générer au moins 3 fichiers: index.html, style.css, script.js
+- JAMAIS proposer un plan - CODE DIRECTEMENT
+- Code complet et fonctionnel dans chaque fichier
 
-Tu réponds TOUJOURS en JSON avec ce format:
+FORMAT JSON STRICT (PAS DE MARKDOWN):
 {
-  "explanation": "Explication détaillée en français",
-  "codeChanges": [tableau de fichiers - OBLIGATOIRE si tu codes],
-  "suggestion": "Prochaines étapes"
+  "explanation": "Description brève",
+  "codeChanges": [
+    {"fileName":"index.html","newContent":"CODE ÉCHAPPÉ","action":"create"},
+    {"fileName":"style.css","newContent":"CODE ÉCHAPPÉ","action":"create"},
+    {"fileName":"script.js","newContent":"CODE ÉCHAPPÉ","action":"create"}
+  ],
+  "suggestion":"Amélioration possible"
 }
 
-RÈGLE CRITIQUE: Si tu génères du code, tu DOIS le mettre dans codeChanges.`;
+OBLIGATOIRE: codeChanges DOIT contenir 3+ fichiers`;
 
       let userMessage = `ÉTAT ACTUEL DU PROJET:\n`;
       
@@ -46,34 +49,22 @@ RÈGLE CRITIQUE: Si tu génères du code, tu DOIS le mettre dans codeChanges.`;
         userMessage += `\nFichier actuellement ouvert: ${currentFile.name}\n\`\`\`${currentFile.language}\n${currentFile.content}\n\`\`\`\n`;
       }
       
-      userMessage += `\n💬 DEMANDE: "${message}"\n\n`;
-      
-      userMessage += `INSTRUCTIONS:
-- Réponds en JSON avec explanation, codeChanges (tableau), et suggestion
-- Dans explanation: explique ton approche en français de manière détaillée
-- Si tu codes: OBLIGATOIRE de mettre le code complet dans codeChanges
-- Si tu proposes juste un plan: codeChanges peut être vide []
+      userMessage += `\n\nDEMANDE: ${message}\n\n`;
+      userMessage += `GÉNÈRE 3 FICHIERS. Réponds EN JSON PUR (pas de markdown).
 
-EXEMPLE (création de site):
-{
-  "explanation": "Je vais créer un site avec un bouton bleu.\\n\\nÉtape 1: Structure HTML\\nÉtape 2: Style CSS avec bouton bleu\\nÉtape 3: JavaScript pour interaction",
-  "codeChanges": [
-    {"fileName": "index.html", "newContent": "<!DOCTYPE html>...", "action": "create"},
-    {"fileName": "style.css", "newContent": "body {...}", "action": "create"},
-    {"fileName": "script.js", "newContent": "...", "action": "create"}
-  ],
-  "suggestion": "Tu peux changer la couleur du bouton si tu veux."
-}
+RÈGLES D'ÉCHAPPEMENT CRITIQUES:
+- Dans JavaScript: TOUJOURS utiliser quotes simples ' au lieu de "
+- Exemple JS: console.log('bonjour'); PAS console.log("bonjour");
+- Remplace \\n par \\\\n dans newContent
+- Remplace " par \\\\" dans newContent HTML
 
-Réponds maintenant:`;
+FORMAT EXACT:
+{"explanation":"Site créé","codeChanges":[{"fileName":"index.html","newContent":"<!DOCTYPE html>\\\\n<html>\\\\n<head><title>Site</title></head>\\\\n<body><h1>Titre</h1></body>\\\\n</html>","action":"create"},{"fileName":"style.css","newContent":"body{margin:0}","action":"create"},{"fileName":"script.js","newContent":"console.log('hello');","action":"create"}],"suggestion":"ok"}
 
-      // Build conversation history for context
-      const messages: any[] = [
-        {
-          role: "system",
-          content: systemPrompt
-        }
-      ];
+Réponds JSON maintenant:`;
+
+      // Build conversation history for Claude (Anthropic API)
+      const messages: any[] = [];
 
       // Add conversation history if provided
       if (conversationHistory && conversationHistory.length > 0) {
@@ -95,17 +86,28 @@ Réponds maintenant:`;
         content: userMessage
       });
 
-      const completion = await openai.chat.completions.create({
+      // Call Claude (the same AI as Replit Agent!)
+      const completion = await anthropic.messages.create({
         model: DEFAULT_MODEL,
+        max_tokens: 8192,
+        system: systemPrompt, // Claude uses separate system parameter
         messages: messages,
-        response_format: { type: "json_object" },
-        max_completion_tokens: 8192,
       });
 
-      const responseContent = completion.choices[0]?.message?.content || "{}";
-      console.log("=== AI RESPONSE ===");
+      let responseContent = completion.content[0]?.type === "text" 
+        ? completion.content[0].text 
+        : "{}";
+      
+      console.log("=== CLAUDE RAW RESPONSE ===");
       console.log(responseContent);
-      console.log("==================");
+      console.log("==========================");
+      
+      // Claude often wraps JSON in markdown code blocks - extract it
+      const jsonMatch = responseContent.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        responseContent = jsonMatch[1].trim();
+        console.log("Extracted JSON from markdown code block");
+      }
       
       let aiResponse: AiChatResponse;
       

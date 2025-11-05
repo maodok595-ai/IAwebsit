@@ -61,7 +61,8 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
           conversationHistory: conversationHistory,
         }
       );
-      return response as unknown as AiChatResponse;
+      // apiRequest returns Response object, need to parse JSON!
+      return await response.json() as AiChatResponse;
     },
     onSuccess: async (data: AiChatResponse) => {
       // Append suggestion to explanation if provided
