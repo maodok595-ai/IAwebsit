@@ -68,7 +68,21 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
       if (data.codeChanges && data.codeChanges.length > 0) {
         try {
           for (const change of data.codeChanges) {
-            if (change.action === "create") {
+            // Check if file already exists by name
+            const existingFile = files.find(f => f.name === change.fileName);
+            
+            if (change.action === "delete") {
+              // Delete file
+              const fileToDelete = change.fileId ? files.find(f => f.id === change.fileId) : existingFile;
+              if (fileToDelete) {
+                await apiRequest("DELETE", `/api/workspace/files/${fileToDelete.id}`, undefined);
+              }
+            } else if (existingFile) {
+              // Update existing file (regardless of action)
+              await apiRequest("PATCH", `/api/workspace/files/${existingFile.id}`, {
+                content: change.newContent,
+              });
+            } else {
               // Create new file
               await apiRequest("POST", "/api/workspace/files", {
                 projectId: PROJECT_ID,
@@ -77,24 +91,16 @@ export default function AIWorkspace({ onSwitchMode }: AIWorkspaceProps) {
                 content: change.newContent,
                 language: getLanguageFromFileName(change.fileName),
               });
-            } else if (change.action === "update" && change.fileId) {
-              // Update existing file
-              await apiRequest("PATCH", `/api/workspace/files/${change.fileId}`, {
-                content: change.newContent,
-              });
-            } else if (change.action === "delete" && change.fileId) {
-              // Delete file
-              await apiRequest("DELETE", `/api/workspace/files/${change.fileId}`, undefined);
             }
           }
           
           // Refresh file list
-          queryClient.invalidateQueries({ queryKey: ["/api/workspace/files", PROJECT_ID] });
+          await queryClient.invalidateQueries({ queryKey: ["/api/workspace/files", PROJECT_ID] });
           
           // Auto-refresh preview after AI changes
           setTimeout(() => {
             handleRunCode();
-          }, 1000);
+          }, 1500);
           
           toast({
             title: "Projet mis à jour",
