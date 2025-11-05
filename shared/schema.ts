@@ -45,7 +45,7 @@ export const aiChatRequestSchema = z.object({
     name: z.string(),
     content: z.string(),
     language: z.string(),
-  }).optional(),
+  }).nullable().optional(),
   allFiles: z.array(z.object({
     id: z.string(),
     name: z.string(),

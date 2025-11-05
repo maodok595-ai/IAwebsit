@@ -12,7 +12,11 @@ import type { AiChatResponse, File } from "@shared/schema";
 
 const PROJECT_ID = "default";
 
-export default function Workspace() {
+interface WorkspaceProps {
+  onSwitchMode?: () => void;
+}
+
+export default function Workspace({ onSwitchMode }: WorkspaceProps = {}) {
   const { toast } = useToast();
   const [localFiles, setLocalFiles] = useState<Map<string, string>>(new Map());
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
@@ -274,6 +278,7 @@ export default function Workspace() {
         isRunning={false}
         onToggleFiles={() => setIsFileExplorerOpen(!isFileExplorerOpen)}
         isFilesOpen={isFileExplorerOpen}
+        onSwitchMode={onSwitchMode}
       />
 
       <div className="flex flex-1 overflow-hidden">

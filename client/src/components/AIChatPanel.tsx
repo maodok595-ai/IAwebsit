@@ -25,6 +25,7 @@ interface AIChatPanelProps {
   onSendMessage: (message: string) => void;
   isLoading: boolean;
   onApplyChanges?: (changes: ChatMessage["codeChanges"]) => void;
+  isLeftSide?: boolean;
 }
 
 export function AIChatPanel({
@@ -34,6 +35,7 @@ export function AIChatPanel({
   onSendMessage,
   isLoading,
   onApplyChanges,
+  isLeftSide = false,
 }: AIChatPanelProps) {
   const [input, setInput] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -73,24 +75,30 @@ export function AIChatPanel({
 
   if (!isOpen) return null;
 
+  const containerClass = isLeftSide
+    ? "flex h-full w-full flex-col bg-background"
+    : "fixed right-0 top-0 z-40 flex h-screen w-full md:w-96 flex-col border-l bg-background shadow-lg";
+
   return (
-    <div className="fixed right-0 top-0 z-40 flex h-screen w-full md:w-96 flex-col border-l bg-background shadow-lg" data-testid="ai-chat-panel">
-      <div className="flex h-14 items-center justify-between border-b px-4">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="text-sm font-semibold">AI Assistant</h2>
+    <div className={containerClass} data-testid="ai-chat-panel">
+      {!isLeftSide && (
+        <div className="flex h-14 items-center justify-between border-b px-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-sm font-semibold">AI Assistant</h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={onClose}
+            data-testid="button-close-ai-chat"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close AI chat</span>
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8"
-          onClick={onClose}
-          data-testid="button-close-ai-chat"
-        >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Close AI chat</span>
-        </Button>
-      </div>
+      )}
 
       <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
         <div className="space-y-4">

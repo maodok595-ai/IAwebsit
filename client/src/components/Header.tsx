@@ -11,6 +11,7 @@ interface HeaderProps {
   isRunning: boolean;
   onToggleFiles?: () => void;
   isFilesOpen?: boolean;
+  onSwitchMode?: () => void;
 }
 
 export function Header({ 
@@ -21,6 +22,7 @@ export function Header({
   isRunning,
   onToggleFiles,
   isFilesOpen = true,
+  onSwitchMode,
 }: HeaderProps) {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-2 md:px-4">
@@ -52,6 +54,18 @@ export function Header({
       </div>
 
       <div className="flex items-center gap-1 md:gap-2">
+        {onSwitchMode && (
+          <Button
+            variant="outline"
+            size="default"
+            onClick={onSwitchMode}
+            data-testid="button-switch-mode"
+          >
+            <Sparkles className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Mode IA</span>
+          </Button>
+        )}
+        
         <Button
           variant="default"
           size="default"

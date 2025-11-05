@@ -14,41 +14,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { message, projectId, currentFile, allFiles } = validated;
 
       // Build context for the AI
-      let contextMessage = `You are an AI coding assistant in a web-based IDE. The user is working on a project.`;
+      let contextMessage = `You are an expert web development AI assistant in CodeStudio IDE. You can create complete websites from natural language descriptions.
+
+CURRENT PROJECT STATE:`;
+      
+      if (allFiles && allFiles.length > 0) {
+        contextMessage += `\nExisting files:`;
+        allFiles.forEach((file) => {
+          contextMessage += `\n- ${file.name} (${file.language}, ${file.content.length} chars)`;
+        });
+      } else {
+        contextMessage += `\nNo files yet - new project.`;
+      }
       
       if (currentFile) {
-        contextMessage += `\n\nCurrent file: ${currentFile.name} (${currentFile.language})`;
-        contextMessage += `\nCurrent content:\n\`\`\`${currentFile.language}\n${currentFile.content}\n\`\`\``;
+        contextMessage += `\n\nCurrently viewing: ${currentFile.name}\n\`\`\`${currentFile.language}\n${currentFile.content}\n\`\`\``;
       }
+      
+      contextMessage += `\n\nUSER REQUEST: "${message}"`;
+      
+      contextMessage += `\n\nYOUR MISSION:
+- If user asks for a complete website/app, create ALL files (HTML, CSS, JavaScript)
+- Generate professional, production-ready, responsive code
+- Use modern best practices (semantic HTML5, flexbox/grid CSS, clean JS)
+- Include COMPLETE working code - no placeholders
+- For simple requests, modify only relevant files
 
-      if (allFiles && allFiles.length > 0) {
-        contextMessage += `\n\nProject files:`;
-        allFiles.forEach((file) => {
-          contextMessage += `\n- ${file.name} (${file.language})`;
-        });
-      }
-
-      contextMessage += `\n\nUser request: ${message}`;
-      contextMessage += `\n\nPlease respond with:
-1. A clear explanation of what you're doing
-2. If modifying code, provide the complete new content for the file
-3. Be concise but helpful
-
-Your response should be in JSON format with this structure:
+RESPONSE FORMAT (JSON):
 {
-  "explanation": "What you did and why",
+  "explanation": "Brief description of what you created",
   "codeChanges": [
-    {
-      "fileId": "id of the file to modify (or 'new' for new files)",
-      "fileName": "name of the file",
-      "newContent": "complete new content",
-      "action": "create" | "update" | "delete"
-    }
+    {"fileName": "index.html", "newContent": "full HTML here", "action": "create"},
+    {"fileName": "style.css", "newContent": "full CSS here", "action": "create"},
+    {"fileName": "script.js", "newContent": "full JS here", "action": "create"}
   ],
-  "suggestion": "optional additional suggestion"
+  "suggestion": "Optional next steps"
 }
 
-If the user is just asking a question and no code changes are needed, only provide the explanation.`;
+ACTIONS: "create" (new file), "update" (existing file), "delete"
+IMPORTANT: Provide COMPLETE file contents, generate beautiful functional code.`;
+
 
       const completion = await openai.chat.completions.create({
         model: DEFAULT_MODEL,
